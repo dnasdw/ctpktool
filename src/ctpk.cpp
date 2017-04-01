@@ -570,7 +570,6 @@ int CCtpk::decode(u8* a_pBuffer, n32 a_nWidth, n32 a_nHeight, n32 a_nFormat, pvr
 		break;
 	}
 	PVRTextureHeaderV3 pvrTextureHeaderV3;
-	MetaDataBlock metaDataBlock;
 	switch (a_nFormat)
 	{
 	case kTextureFormatRGBA8888:
@@ -618,6 +617,7 @@ int CCtpk::decode(u8* a_pBuffer, n32 a_nWidth, n32 a_nHeight, n32 a_nFormat, pvr
 	}
 	pvrTextureHeaderV3.u32Height = a_nHeight;
 	pvrTextureHeaderV3.u32Width = a_nWidth;
+	MetaDataBlock metaDataBlock;
 	metaDataBlock.DevFOURCC = PVRTEX3_IDENT;
 	metaDataBlock.u32Key = ePVRTMetaDataTextureOrientation;
 	metaDataBlock.u32DataSize = 3;
@@ -631,12 +631,12 @@ int CCtpk::decode(u8* a_pBuffer, n32 a_nWidth, n32 a_nHeight, n32 a_nFormat, pvr
 	pvrtexture::Transcode(**a_pPVRTexture, pvrtexture::PVRStandard8PixelType, ePVRTVarTypeUnsignedByteNorm, ePVRTCSpacelRGB);
 	if (a_nFormat == kTextureFormatETC1_A4)
 	{
-		u8* data = static_cast<u8*>((*a_pPVRTexture)->getDataPtr());
+		u8* pData = static_cast<u8*>((*a_pPVRTexture)->getDataPtr());
 		for (n32 i = 0; i < a_nHeight; i++)
 		{
 			for (n32 j = 0; j < a_nWidth; j++)
 			{
-				data[(i * a_nWidth + j) * 4 + 3] = pAlpha[i * a_nWidth + j];
+				pData[(i * a_nWidth + j) * 4 + 3] = pAlpha[i * a_nWidth + j];
 			}
 		}
 		delete[] pAlpha;
@@ -754,8 +754,8 @@ void CCtpk::encode(u8* a_pData, n32 a_nWidth, n32 a_nHeight, n32 a_nFormat, n32 
 	*a_pBuffer = new u8[nTotalSize];
 	for (n32 l = 0; l < a_nMipmapLevel; l++)
 	{
-		n32 mipmapWidth = a_nWidth >> l;
-		n32 mipmapHeight = a_nHeight >> l;
+		n32 nMipmapWidth = a_nWidth >> l;
+		n32 nMipmapHeight = a_nHeight >> l;
 		u8* pRGBA = static_cast<u8*>(pPVRTexture->getDataPtr(l));
 		u8* pAlpha = nullptr;
 		if (a_nFormat == kTextureFormatETC1_A4)
@@ -766,19 +766,19 @@ void CCtpk::encode(u8* a_pData, n32 a_nWidth, n32 a_nHeight, n32 a_nFormat, n32 
 		{
 		case kTextureFormatRGBA8888:
 			{
-				u8* pTemp = new u8[mipmapWidth * mipmapHeight * 4];
-				for (n32 i = 0; i < mipmapHeight; i++)
+				u8* pTemp = new u8[nMipmapWidth * nMipmapHeight * 4];
+				for (n32 i = 0; i < nMipmapHeight; i++)
 				{
-					for (n32 j = 0; j < mipmapWidth; j++)
+					for (n32 j = 0; j < nMipmapWidth; j++)
 					{
 						for (n32 k = 0; k < 4; k++)
 						{
-							pTemp[(((i / 8) * (mipmapWidth / 8) + j / 8) * 64 + i % 8 * 8 + j % 8) * 4 + k] = pRGBA[(i * mipmapWidth + j) * 4 + k];
+							pTemp[(((i / 8) * (nMipmapWidth / 8) + j / 8) * 64 + i % 8 * 8 + j % 8) * 4 + k] = pRGBA[(i * nMipmapWidth + j) * 4 + k];
 						}
 					}
 				}
 				u8* pMipmapBuffer = *a_pBuffer + nCurrentSize;
-				for (n32 i = 0; i < mipmapWidth * mipmapHeight / 64; i++)
+				for (n32 i = 0; i < nMipmapWidth * nMipmapHeight / 64; i++)
 				{
 					for (n32 j = 0; j < 64; j++)
 					{
@@ -793,19 +793,19 @@ void CCtpk::encode(u8* a_pData, n32 a_nWidth, n32 a_nHeight, n32 a_nFormat, n32 
 			break;
 		case kTextureFormatRGB888:
 			{
-				u8* pTemp = new u8[mipmapWidth * mipmapHeight * 3];
-				for (n32 i = 0; i < mipmapHeight; i++)
+				u8* pTemp = new u8[nMipmapWidth * nMipmapHeight * 3];
+				for (n32 i = 0; i < nMipmapHeight; i++)
 				{
-					for (n32 j = 0; j < mipmapWidth; j++)
+					for (n32 j = 0; j < nMipmapWidth; j++)
 					{
 						for (n32 k = 0; k < 3; k++)
 						{
-							pTemp[(((i / 8) * (mipmapWidth / 8) + j / 8) * 64 + i % 8 * 8 + j % 8) * 3 + k] = pRGBA[(i * mipmapWidth + j) * 3 + k];
+							pTemp[(((i / 8) * (nMipmapWidth / 8) + j / 8) * 64 + i % 8 * 8 + j % 8) * 3 + k] = pRGBA[(i * nMipmapWidth + j) * 3 + k];
 						}
 					}
 				}
 				u8* pMipmapBuffer = *a_pBuffer + nCurrentSize;
-				for (n32 i = 0; i < mipmapWidth * mipmapHeight / 64; i++)
+				for (n32 i = 0; i < nMipmapWidth * nMipmapHeight / 64; i++)
 				{
 					for (n32 j = 0; j < 64; j++)
 					{
@@ -822,19 +822,19 @@ void CCtpk::encode(u8* a_pData, n32 a_nWidth, n32 a_nHeight, n32 a_nFormat, n32 
 		case kTextureFormatRGB565:
 		case kTextureFormatRGBA4444:
 			{
-				u8* pTemp = new u8[mipmapWidth * mipmapHeight * 2];
-				for (n32 i = 0; i < mipmapHeight; i++)
+				u8* pTemp = new u8[nMipmapWidth * nMipmapHeight * 2];
+				for (n32 i = 0; i < nMipmapHeight; i++)
 				{
-					for (n32 j = 0; j < mipmapWidth; j++)
+					for (n32 j = 0; j < nMipmapWidth; j++)
 					{
 						for (n32 k = 0; k < 2; k++)
 						{
-							pTemp[(((i / 8) * (mipmapWidth / 8) + j / 8) * 64 + i % 8 * 8 + j % 8) * 2 + k] = pRGBA[(i * mipmapWidth + j) * 2 + k];
+							pTemp[(((i / 8) * (nMipmapWidth / 8) + j / 8) * 64 + i % 8 * 8 + j % 8) * 2 + k] = pRGBA[(i * nMipmapWidth + j) * 2 + k];
 						}
 					}
 				}
 				u8* pMipmapBuffer = *a_pBuffer + nCurrentSize;
-				for (n32 i = 0; i < mipmapWidth * mipmapHeight / 64; i++)
+				for (n32 i = 0; i < nMipmapWidth * nMipmapHeight / 64; i++)
 				{
 					for (n32 j = 0; j < 64; j++)
 					{
@@ -850,19 +850,19 @@ void CCtpk::encode(u8* a_pData, n32 a_nWidth, n32 a_nHeight, n32 a_nFormat, n32 
 		case kTextureFormatLA88:
 		case kTextureFormatHL8:
 			{
-				u8* pTemp = new u8[mipmapWidth * mipmapHeight * 2];
-				for (n32 i = 0; i < mipmapHeight; i++)
+				u8* pTemp = new u8[nMipmapWidth * nMipmapHeight * 2];
+				for (n32 i = 0; i < nMipmapHeight; i++)
 				{
-					for (n32 j = 0; j < mipmapWidth; j++)
+					for (n32 j = 0; j < nMipmapWidth; j++)
 					{
 						for (n32 k = 0; k < 2; k++)
 						{
-							pTemp[(((i / 8) * (mipmapWidth / 8) + j / 8) * 64 + i % 8 * 8 + j % 8) * 2 + k] = pRGBA[(i * mipmapWidth + j) * 2 + k];
+							pTemp[(((i / 8) * (nMipmapWidth / 8) + j / 8) * 64 + i % 8 * 8 + j % 8) * 2 + k] = pRGBA[(i * nMipmapWidth + j) * 2 + k];
 						}
 					}
 				}
 				u8* pMipmapBuffer = *a_pBuffer + nCurrentSize;
-				for (n32 i = 0; i < mipmapWidth * mipmapHeight / 64; i++)
+				for (n32 i = 0; i < nMipmapWidth * nMipmapHeight / 64; i++)
 				{
 					for (n32 j = 0; j < 64; j++)
 					{
@@ -879,16 +879,16 @@ void CCtpk::encode(u8* a_pData, n32 a_nWidth, n32 a_nHeight, n32 a_nFormat, n32 
 		case kTextureFormatA8:
 		case kTextureFormatLA44:
 			{
-				u8* pTemp = new u8[mipmapWidth * mipmapHeight];
-				for (n32 i = 0; i < mipmapHeight; i++)
+				u8* pTemp = new u8[nMipmapWidth * nMipmapHeight];
+				for (n32 i = 0; i < nMipmapHeight; i++)
 				{
-					for (n32 j = 0; j < mipmapWidth; j++)
+					for (n32 j = 0; j < nMipmapWidth; j++)
 					{
-						pTemp[((i / 8) * (mipmapWidth / 8) + j / 8) * 64 + i % 8 * 8 + j % 8] = pRGBA[i * mipmapWidth + j];
+						pTemp[((i / 8) * (nMipmapWidth / 8) + j / 8) * 64 + i % 8 * 8 + j % 8] = pRGBA[i * nMipmapWidth + j];
 					}
 				}
 				u8* pMipmapBuffer = *a_pBuffer + nCurrentSize;
-				for (n32 i = 0; i < mipmapWidth * mipmapHeight / 64; i++)
+				for (n32 i = 0; i < nMipmapWidth * nMipmapHeight / 64; i++)
 				{
 					for (n32 j = 0; j < 64; j++)
 					{
@@ -901,16 +901,16 @@ void CCtpk::encode(u8* a_pData, n32 a_nWidth, n32 a_nHeight, n32 a_nFormat, n32 
 		case kTextureFormatL4:
 		case kTextureFormatA4:
 			{
-				u8* pTemp = new u8[mipmapWidth * mipmapHeight];
-				for (n32 i = 0; i < mipmapHeight; i++)
+				u8* pTemp = new u8[nMipmapWidth * nMipmapHeight];
+				for (n32 i = 0; i < nMipmapHeight; i++)
 				{
-					for (n32 j = 0; j < mipmapWidth; j++)
+					for (n32 j = 0; j < nMipmapWidth; j++)
 					{
-						pTemp[((i / 8) * (mipmapWidth / 8) + j / 8) * 64 + i % 8 * 8 + j % 8] = pRGBA[i * mipmapWidth + j];
+						pTemp[((i / 8) * (nMipmapWidth / 8) + j / 8) * 64 + i % 8 * 8 + j % 8] = pRGBA[i * nMipmapWidth + j];
 					}
 				}
 				u8* pMipmapBuffer = *a_pBuffer + nCurrentSize;
-				for (n32 i = 0; i < mipmapWidth * mipmapHeight / 64; i++)
+				for (n32 i = 0; i < nMipmapWidth * nMipmapHeight / 64; i++)
 				{
 					for (n32 j = 0; j < 64; j += 2)
 					{
@@ -922,16 +922,16 @@ void CCtpk::encode(u8* a_pData, n32 a_nWidth, n32 a_nHeight, n32 a_nFormat, n32 
 			break;
 		case kTextureFormatETC1:
 			{
-				u8* pTemp = new u8[mipmapWidth * mipmapHeight / 2];
-				for (n32 i = 0; i < mipmapHeight; i += 4)
+				u8* pTemp = new u8[nMipmapWidth * nMipmapHeight / 2];
+				for (n32 i = 0; i < nMipmapHeight; i += 4)
 				{
-					for (n32 j = 0; j < mipmapWidth; j += 4)
+					for (n32 j = 0; j < nMipmapWidth; j += 4)
 					{
-						memcpy(pTemp + (((i / 8) * (mipmapWidth / 8) + j / 8) * 4 + (i % 8 / 4 * 2 + j % 8 / 4)) * 8, pRGBA + ((i / 4) * (mipmapWidth / 4) + j / 4) * 8, 8);
+						memcpy(pTemp + (((i / 8) * (nMipmapWidth / 8) + j / 8) * 4 + (i % 8 / 4 * 2 + j % 8 / 4)) * 8, pRGBA + ((i / 4) * (nMipmapWidth / 4) + j / 4) * 8, 8);
 					}
 				}
 				u8* pMipmapBuffer = *a_pBuffer + nCurrentSize;
-				for (n32 i = 0; i < mipmapWidth * mipmapHeight / 2 / 8; i++)
+				for (n32 i = 0; i < nMipmapWidth * nMipmapHeight / 2 / 8; i++)
 				{
 					for (n32 j = 0; j < 8; j++)
 					{
@@ -943,16 +943,16 @@ void CCtpk::encode(u8* a_pData, n32 a_nWidth, n32 a_nHeight, n32 a_nFormat, n32 
 			break;
 		case kTextureFormatETC1_A4:
 			{
-				u8* pTemp = new u8[mipmapWidth * mipmapHeight / 2];
-				for (n32 i = 0; i < mipmapHeight; i += 4)
+				u8* pTemp = new u8[nMipmapWidth * nMipmapHeight / 2];
+				for (n32 i = 0; i < nMipmapHeight; i += 4)
 				{
-					for (n32 j = 0; j < mipmapWidth; j += 4)
+					for (n32 j = 0; j < nMipmapWidth; j += 4)
 					{
-						memcpy(pTemp + (((i / 8) * (mipmapWidth / 8) + j / 8) * 4 + (i % 8 / 4 * 2 + j % 8 / 4)) * 8, pRGBA + ((i / 4) * (mipmapWidth / 4) + j / 4) * 8, 8);
+						memcpy(pTemp + (((i / 8) * (nMipmapWidth / 8) + j / 8) * 4 + (i % 8 / 4 * 2 + j % 8 / 4)) * 8, pRGBA + ((i / 4) * (nMipmapWidth / 4) + j / 4) * 8, 8);
 					}
 				}
 				u8* pMipmapBuffer = *a_pBuffer + nCurrentSize;
-				for (n32 i = 0; i < mipmapWidth * mipmapHeight / 2 / 8; i++)
+				for (n32 i = 0; i < nMipmapWidth * nMipmapHeight / 2 / 8; i++)
 				{
 					for (n32 j = 0; j < 8; j++)
 					{
@@ -960,15 +960,15 @@ void CCtpk::encode(u8* a_pData, n32 a_nWidth, n32 a_nHeight, n32 a_nFormat, n32 
 					}
 				}
 				delete[] pTemp;
-				pTemp = new u8[mipmapWidth * mipmapHeight];
-				for (n32 i = 0; i < mipmapHeight; i++)
+				pTemp = new u8[nMipmapWidth * nMipmapHeight];
+				for (n32 i = 0; i < nMipmapHeight; i++)
 				{
-					for (n32 j = 0; j < mipmapWidth; j++)
+					for (n32 j = 0; j < nMipmapWidth; j++)
 					{
-						pTemp[(((i / 8) * (mipmapWidth / 8) + j / 8) * 4 + i % 8 / 4 * 2 + j % 8 / 4) * 16 + i % 4 * 4 + j % 4] = pAlpha[i * mipmapWidth + j];
+						pTemp[(((i / 8) * (nMipmapWidth / 8) + j / 8) * 4 + i % 8 / 4 * 2 + j % 8 / 4) * 16 + i % 4 * 4 + j % 4] = pAlpha[i * nMipmapWidth + j];
 					}
 				}
-				for (n32 i = 0; i < mipmapWidth * mipmapHeight / 16; i++)
+				for (n32 i = 0; i < nMipmapWidth * nMipmapHeight / 16; i++)
 				{
 					for (n32 j = 0; j < 4; j++)
 					{
@@ -980,7 +980,7 @@ void CCtpk::encode(u8* a_pData, n32 a_nWidth, n32 a_nHeight, n32 a_nFormat, n32 
 			}
 			break;
 		}
-		nCurrentSize += mipmapWidth * mipmapHeight * a_nBPP / 8;
+		nCurrentSize += nMipmapWidth * nMipmapHeight * a_nBPP / 8;
 	}
 	delete pPVRTexture;
 	if (a_nFormat == kTextureFormatETC1_A4)
