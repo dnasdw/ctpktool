@@ -96,8 +96,8 @@ bool CCtpk::ExportFile()
 				UMkdir(sDirName.c_str());
 			}
 			sPngFileName = sDirName + USTR("/") + vDirPath.back() + USTR(".png");
-			FILE* fp = UFopen(sPngFileName.c_str(), USTR("wb"));
-			if (fp == nullptr)
+			FILE* fpSub = UFopen(sPngFileName.c_str(), USTR("wb"));
+			if (fpSub == nullptr)
 			{
 				delete pPVRTexture;
 				bResult = false;
@@ -110,7 +110,7 @@ bool CCtpk::ExportFile()
 			png_structp pPng = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
 			if (pPng == nullptr)
 			{
-				fclose(fp);
+				fclose(fpSub);
 				delete pPVRTexture;
 				bResult = false;
 				printf("ERROR: png_create_write_struct error\n\n");
@@ -120,7 +120,7 @@ bool CCtpk::ExportFile()
 			if (pInfo == nullptr)
 			{
 				png_destroy_write_struct(&pPng, nullptr);
-				fclose(fp);
+				fclose(fpSub);
 				delete pPVRTexture;
 				bResult = false;
 				printf("ERROR: png_create_info_struct error\n\n");
@@ -129,13 +129,13 @@ bool CCtpk::ExportFile()
 			if (setjmp(png_jmpbuf(pPng)) != 0)
 			{
 				png_destroy_write_struct(&pPng, &pInfo);
-				fclose(fp);
+				fclose(fpSub);
 				delete pPVRTexture;
 				bResult = false;
 				printf("ERROR: setjmp error\n\n");
 				break;
 			}
-			png_init_io(pPng, fp);
+			png_init_io(pPng, fpSub);
 			png_set_IHDR(pPng, pInfo, pCtrTextureInfo[i].Width, pCtrTextureInfo[i].Height, 8, PNG_COLOR_TYPE_RGB_ALPHA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 			u8* pData = static_cast<u8*>(pPVRTexture->getDataPtr());
 			png_bytepp pRowPointers = new png_bytep[pCtrTextureInfo[i].Height];
@@ -147,7 +147,7 @@ bool CCtpk::ExportFile()
 			png_write_png(pPng, pInfo, PNG_TRANSFORM_IDENTITY, nullptr);
 			png_destroy_write_struct(&pPng, &pInfo);
 			delete[] pRowPointers;
-			fclose(fp);
+			fclose(fpSub);
 			delete pPVRTexture;
 		}
 		else
