@@ -1,7 +1,7 @@
 #ifndef CTPKTOOL_H_
 #define CTPKTOOL_H_
 
-#include "utility.h"
+#include <sdw.h>
 
 class CCtpkTool
 {
@@ -39,8 +39,8 @@ private:
 	bool exportFile();
 	bool importFile();
 	EAction m_eAction;
-	const char* m_pFileName;
-	const char* m_pDirName;
+	string m_sFileName;
+	string m_sDirName;
 	bool m_bVerbose;
 };
 

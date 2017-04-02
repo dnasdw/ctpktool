@@ -8,24 +8,32 @@ A tool for exporting/importing ctpk file.
 
 ## Platforms
 
-- Linux *(Ubuntu 14.04, CentOS 7.0)*
-- Mac OS X *10.10*
-- Windows *XP+*
+- Windows
+- Linux
+- macOS
 
 ## Building
 
 ### Dependencies
 
 - cmake
-- libiconv **(linux only)**
+- libpng
 
 ### Compiling
 
+- make 64-bit version
 ~~~
 mkdir project
 cd project
-cmake ..
-cmake ..
+cmake -DUSE_DEP=OFF ..
+make
+~~~
+
+- make 32-bit version
+~~~
+mkdir project
+cd project
+cmake -DBUILD64=OFF -DUSE_DEP=OFF ..
 make
 ~~~
 
@@ -40,21 +48,15 @@ make install
 ### Windows
 
 ~~~
-ctpktool.exe [option...] [option]...
+ctpktool [option...] [option]...
 ~~~
 
 ### Other
 
 ~~~
-ctpktool [option...] [option]...
+ctpktool.sh [option...] [option]...
 ~~~
-
-> Remember to do `chmod +x ctpktool` first
 
 ## Options
 
 See `ctpktool --help` messages.
-
-## FAQ
-
-Nothing here for now.

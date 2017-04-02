@@ -14,8 +14,6 @@ CCtpkTool::SOption CCtpkTool::s_Option[] =
 
 CCtpkTool::CCtpkTool()
 	: m_eAction(kActionNone)
-	, m_pFileName(nullptr)
-	, m_pDirName(nullptr)
 	, m_bVerbose(false)
 {
 }
@@ -94,19 +92,19 @@ int CCtpkTool::CheckOptions()
 	}
 	if (m_eAction != kActionHelp)
 	{
-		if (m_pFileName == nullptr)
+		if (m_sFileName.empty())
 		{
 			printf("ERROR: no --file option\n\n");
 			return 1;
 		}
-		if (m_pDirName == nullptr)
+		if (m_sDirName.empty())
 		{
 			printf("ERROR: no --dir option\n\n");
 			return 1;
 		}
-		if (!CCtpk::IsCtpkFile(m_pFileName))
+		if (!CCtpk::IsCtpkFile(m_sFileName))
 		{
-			printf("ERROR: %s is not a ctpk file\n\n", m_pFileName);
+			printf("ERROR: %s is not a ctpk file\n\n", m_sFileName.c_str());
 			return 1;
 		}
 	}
@@ -207,7 +205,7 @@ CCtpkTool::EParseOptionReturn CCtpkTool::parseOptions(const char* a_pName, int& 
 		{
 			return kParseOptionReturnNoArgument;
 		}
-		m_pFileName = a_pArgv[++a_nIndex];
+		m_sFileName = a_pArgv[++a_nIndex];
 	}
 	else if (strcmp(a_pName, "dir") == 0)
 	{
@@ -215,7 +213,7 @@ CCtpkTool::EParseOptionReturn CCtpkTool::parseOptions(const char* a_pName, int& 
 		{
 			return kParseOptionReturnNoArgument;
 		}
-		m_pDirName = a_pArgv[++a_nIndex];
+		m_sDirName = a_pArgv[++a_nIndex];
 	}
 	else if (strcmp(a_pName, "verbose") == 0)
 	{
@@ -243,8 +241,8 @@ CCtpkTool::EParseOptionReturn CCtpkTool::parseOptions(int a_nKey, int& a_nIndex,
 bool CCtpkTool::exportFile()
 {
 	CCtpk ctpk;
-	ctpk.SetFileName(m_pFileName);
-	ctpk.SetDirName(m_pDirName);
+	ctpk.SetFileName(m_sFileName);
+	ctpk.SetDirName(m_sDirName);
 	ctpk.SetVerbose(m_bVerbose);
 	return ctpk.ExportFile();
 }
@@ -252,15 +250,15 @@ bool CCtpkTool::exportFile()
 bool CCtpkTool::importFile()
 {
 	CCtpk ctpk;
-	ctpk.SetFileName(m_pFileName);
-	ctpk.SetDirName(m_pDirName);
+	ctpk.SetFileName(m_sFileName);
+	ctpk.SetDirName(m_sDirName);
 	ctpk.SetVerbose(m_bVerbose);
 	return ctpk.ImportFile();
 }
 
 int main(int argc, char* argv[])
 {
-	FSetLocale();
+	SetLocale();
 	CCtpkTool tool;
 	if (tool.ParseOptions(argc, argv) != 0)
 	{

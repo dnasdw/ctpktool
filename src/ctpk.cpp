@@ -2,7 +2,7 @@
 #include <png.h>
 #include <PVRTextureUtilities.h>
 
-const u32 CCtpk::s_uSignature = CONVERT_ENDIAN('CTPK');
+const u32 CCtpk::s_uSignature = SDW_CONVERT_ENDIAN32('CTPK');
 const int CCtpk::s_nBPP[] = { 32, 24, 16, 16, 16, 16, 16, 8, 8, 8, 4, 4, 4, 8 };
 const int CCtpk::s_nDecodeTransByte[64] =
 {
@@ -17,9 +17,7 @@ const int CCtpk::s_nDecodeTransByte[64] =
 };
 
 CCtpk::CCtpk()
-	: m_pFileName(nullptr)
-	, m_bVerbose(false)
-	, m_fpCtpk(nullptr)
+	: m_bVerbose(false)
 {
 }
 
@@ -27,14 +25,14 @@ CCtpk::~CCtpk()
 {
 }
 
-void CCtpk::SetFileName(const char* a_pFileName)
+void CCtpk::SetFileName(const string& a_sFileName)
 {
-	m_pFileName = a_pFileName;
+	m_sFileName = a_sFileName;
 }
 
-void CCtpk::SetDirName(const char* a_pDirName)
+void CCtpk::SetDirName(const string& a_sDirName)
 {
-	m_sDirName = FSAToUnicode(a_pDirName);
+	m_sDirName = AToU(a_sDirName);
 }
 
 void CCtpk::SetVerbose(bool a_bVerbose)
@@ -45,33 +43,33 @@ void CCtpk::SetVerbose(bool a_bVerbose)
 bool CCtpk::ExportFile()
 {
 	bool bResult = true;
-	m_fpCtpk = FFopen(m_pFileName, "rb");
-	if (m_fpCtpk == nullptr)
+	FILE* fp = Fopen(m_sFileName.c_str(), "rb");
+	if (fp == nullptr)
 	{
 		return false;
 	}
-	FFseek(m_fpCtpk, 0, SEEK_END);
-	n64 nFileSize = FFtell(m_fpCtpk);
-	FFseek(m_fpCtpk, 0, SEEK_SET);
-	u8* pBin = new u8[static_cast<size_t>(nFileSize)];
-	fread(pBin, 1, static_cast<size_t>(nFileSize), m_fpCtpk);
-	fclose(m_fpCtpk);
-	SCtpkHeader* pCtpkHeader = reinterpret_cast<SCtpkHeader*>(pBin);
-	SCtrTextureInfo* pCtrTextureInfo = reinterpret_cast<SCtrTextureInfo*>(pBin + sizeof(*pCtpkHeader));
-	STextureShortInfo* pTextureShortInfo = reinterpret_cast<STextureShortInfo*>(pBin + pCtpkHeader->TextureShortInfoOffset);
-	FMakeDir(m_sDirName.c_str());
+	fseek(fp, 0, SEEK_END);
+	u32 uCtpkSize = ftell(fp);
+	fseek(fp, 0, SEEK_SET);
+	u8* pCtpk = new u8[uCtpkSize];
+	fread(pCtpk, 1, uCtpkSize, fp);
+	fclose(fp);
+	SCtpkHeader* pCtpkHeader = reinterpret_cast<SCtpkHeader*>(pCtpk);
+	SCtrTextureInfo* pCtrTextureInfo = reinterpret_cast<SCtrTextureInfo*>(pCtpk + sizeof(SCtpkHeader));
+	STextureShortInfo* pTextureShortInfo = reinterpret_cast<STextureShortInfo*>(pCtpk + pCtpkHeader->TextureShortInfoOffset);
+	UMkdir(m_sDirName.c_str());
 	for (n32 i = 0; i < pCtpkHeader->Count; i++)
 	{
 		if (pTextureShortInfo[i].TextFormat != 0xFF && pCtrTextureInfo[i].TexFormat != pTextureShortInfo[i].TextFormat)
 		{
-			printf("ERROR: format is not equivalent\n\n");
 			bResult = false;
+			printf("ERROR: format is not equivalent\n\n");
 			break;
 		}
 		if (pCtrTextureInfo[i].TexFormat < kTextureFormatRGBA8888 || pCtrTextureInfo[i].TexFormat > kTextureFormatETC1_A4)
 		{
-			printf("ERROR: unknown format %d\n\n", pCtrTextureInfo[i].TexFormat);
 			bResult = false;
+			printf("ERROR: unknown format %d\n\n", pCtrTextureInfo[i].TexFormat);
 			break;
 		}
 		n32 nCheckSize = 0;
@@ -86,20 +84,19 @@ bool CCtpk::ExportFile()
 			printf("INFO: width: %X, height: %X, checksize: %X, size: %X, bpp: %d, format: %0X\n", pCtrTextureInfo[i].Width, pCtrTextureInfo[i].Height, nCheckSize, pCtrTextureInfo[i].TexDataSize, pCtrTextureInfo[i].TexDataSize * 8 / pCtrTextureInfo[i].Width / pCtrTextureInfo[i].Height, pCtrTextureInfo[i].TexFormat);
 		}
 		pvrtexture::CPVRTexture* pPVRTexture = nullptr;
-		if (decode(pBin + pCtpkHeader->TextureOffset + pCtrTextureInfo[i].TexDataOffset, pCtrTextureInfo[i].Width, pCtrTextureInfo[i].Height, pCtrTextureInfo[i].TexFormat, &pPVRTexture) == 0)
+		if (decode(pCtpk + pCtpkHeader->TextureOffset + pCtrTextureInfo[i].TexDataOffset, pCtrTextureInfo[i].Width, pCtrTextureInfo[i].Height, pCtrTextureInfo[i].TexFormat, &pPVRTexture) == 0)
 		{
-			String sFilePath = FSAToUnicode(reinterpret_cast<char*>(pBin + pCtrTextureInfo[i].FilePathOffset));
-			remove(sFilePath.begin(), sFilePath.end(), STR(':'));
-			vector<String> sSplitPath = FSSplitOf<String>(sFilePath, STR("/\\"));
-			String sDirPath = m_sDirName;
-			for (int j = 0; j < static_cast<int>(sSplitPath.size()) - 1; j++)
+			UString sPngFileName = AToU(reinterpret_cast<char*>(pCtpk + pCtrTextureInfo[i].FilePathOffset));
+			remove(sPngFileName.begin(), sPngFileName.end(), USTR(':'));
+			vector<UString> vDirPath = SplitOf(sPngFileName, USTR("/\\"));
+			UString sDirName = m_sDirName;
+			for (n32 j = 0; j < static_cast<n32>(vDirPath.size()) - 1; j++)
 			{
-				sDirPath += STR("/");
-				sDirPath += sSplitPath[j];
-				FMakeDir(sDirPath.c_str());
+				sDirName += USTR("/") + vDirPath[j];
+				UMkdir(sDirName.c_str());
 			}
-			sFilePath = sDirPath + STR("/") + sSplitPath[sSplitPath.size() - 1] + STR(".png");
-			FILE* fp = FFopenUnicode(sFilePath.c_str(), STR("wb"));
+			sPngFileName = sDirName + USTR("/") + vDirPath.back() + USTR(".png");
+			FILE* fp = UFopen(sPngFileName.c_str(), USTR("wb"));
 			if (fp == nullptr)
 			{
 				delete pPVRTexture;
@@ -108,91 +105,91 @@ bool CCtpk::ExportFile()
 			}
 			if (m_bVerbose)
 			{
-				FPrintf(STR("save: %s\n"), sFilePath.c_str());
+				UPrintf(USTR("save: %") PRIUS USTR("\n"), sPngFileName.c_str());
 			}
-			png_structp png_ptr = png_create_write_struct(PNG_LIBPNG_VER_STRING, (png_voidp)nullptr, nullptr, nullptr);
-			if (png_ptr == nullptr)
+			png_structp pPng = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
+			if (pPng == nullptr)
 			{
 				fclose(fp);
 				delete pPVRTexture;
+				bResult = false;
 				printf("ERROR: png_create_write_struct error\n\n");
-				bResult = false;
 				break;
 			}
-			png_infop info_ptr = png_create_info_struct(png_ptr);
-			if (info_ptr == nullptr)
+			png_infop pInfo = png_create_info_struct(pPng);
+			if (pInfo == nullptr)
 			{
-				png_destroy_write_struct(&png_ptr, (png_infopp)nullptr);
+				png_destroy_write_struct(&pPng, nullptr);
 				fclose(fp);
 				delete pPVRTexture;
+				bResult = false;
 				printf("ERROR: png_create_info_struct error\n\n");
-				bResult = false;
 				break;
 			}
-			if (setjmp(png_jmpbuf(png_ptr)) != 0)
+			if (setjmp(png_jmpbuf(pPng)) != 0)
 			{
-				png_destroy_write_struct(&png_ptr, &info_ptr);
+				png_destroy_write_struct(&pPng, &pInfo);
 				fclose(fp);
 				delete pPVRTexture;
-				printf("ERROR: setjmp error\n\n");
 				bResult = false;
+				printf("ERROR: setjmp error\n\n");
 				break;
 			}
-			png_init_io(png_ptr, fp);
-			png_set_IHDR(png_ptr, info_ptr, pCtrTextureInfo[i].Width, pCtrTextureInfo[i].Height, 8, PNG_COLOR_TYPE_RGB_ALPHA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
+			png_init_io(pPng, fp);
+			png_set_IHDR(pPng, pInfo, pCtrTextureInfo[i].Width, pCtrTextureInfo[i].Height, 8, PNG_COLOR_TYPE_RGB_ALPHA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
 			u8* pData = static_cast<u8*>(pPVRTexture->getDataPtr());
 			png_bytepp pRowPointers = new png_bytep[pCtrTextureInfo[i].Height];
 			for (n32 j = 0; j < pCtrTextureInfo[i].Height; j++)
 			{
 				pRowPointers[j] = pData + j * pCtrTextureInfo[i].Width * 4;
 			}
-			png_set_rows(png_ptr, info_ptr, pRowPointers);
-			png_write_png(png_ptr, info_ptr, PNG_TRANSFORM_IDENTITY, nullptr);
-			png_destroy_write_struct(&png_ptr, &info_ptr);
+			png_set_rows(pPng, pInfo, pRowPointers);
+			png_write_png(pPng, pInfo, PNG_TRANSFORM_IDENTITY, nullptr);
+			png_destroy_write_struct(&pPng, &pInfo);
 			delete[] pRowPointers;
 			fclose(fp);
 			delete pPVRTexture;
 		}
 		else
 		{
-			printf("ERROR: decode error\n\n");
 			bResult = false;
+			printf("ERROR: decode error\n\n");
 			break;
 		}
 	}
-	delete[] pBin;
+	delete[] pCtpk;
 	return bResult;
 }
 
 bool CCtpk::ImportFile()
 {
 	bool bResult = true;
-	m_fpCtpk = FFopen(m_pFileName, "rb");
-	if (m_fpCtpk == nullptr)
+	FILE* fp = Fopen(m_sFileName.c_str(), "rb");
+	if (fp == nullptr)
 	{
 		return false;
 	}
-	FFseek(m_fpCtpk, 0, SEEK_END);
-	n64 nFileSize = FFtell(m_fpCtpk);
-	FFseek(m_fpCtpk, 0, SEEK_SET);
-	u8* pBin = new u8[static_cast<size_t>(nFileSize)];
-	fread(pBin, 1, static_cast<size_t>(nFileSize), m_fpCtpk);
-	fclose(m_fpCtpk);
-	SCtpkHeader* pCtpkHeader = reinterpret_cast<SCtpkHeader*>(pBin);
-	SCtrTextureInfo* pCtrTextureInfo = reinterpret_cast<SCtrTextureInfo*>(pBin + sizeof(*pCtpkHeader));
-	STextureShortInfo* pTextureShortInfo = reinterpret_cast<STextureShortInfo*>(pBin + pCtpkHeader->TextureShortInfoOffset);
+	fseek(fp, 0, SEEK_END);
+	u32 uCtpkSize = ftell(fp);
+	fseek(fp, 0, SEEK_SET);
+	u8* pCtpk = new u8[uCtpkSize];
+	fread(pCtpk, 1, uCtpkSize, fp);
+	fclose(fp);
+	SCtpkHeader* pCtpkHeader = reinterpret_cast<SCtpkHeader*>(pCtpk);
+	SCtrTextureInfo* pCtrTextureInfo = reinterpret_cast<SCtrTextureInfo*>(pCtpk + sizeof(SCtpkHeader));
+	STextureShortInfo* pTextureShortInfo = reinterpret_cast<STextureShortInfo*>(pCtpk + pCtpkHeader->TextureShortInfoOffset);
 	for (n32 i = 0; i < pCtpkHeader->Count; i++)
 	{
 		if (pTextureShortInfo[i].TextFormat != 0xFF && pCtrTextureInfo[i].TexFormat != pTextureShortInfo[i].TextFormat)
 		{
-			printf("ERROR: format is not equivalent\n\n");
 			bResult = false;
+			printf("ERROR: format is not equivalent\n\n");
 			break;
 		}
 		if (pCtrTextureInfo[i].TexFormat < kTextureFormatRGBA8888 || pCtrTextureInfo[i].TexFormat > kTextureFormatETC1_A4)
 		{
-			printf("ERROR: unknown format %d\n\n", pCtrTextureInfo[i].TexFormat);
 			bResult = false;
+			printf("ERROR: unknown format %d\n\n", pCtrTextureInfo[i].TexFormat);
 			break;
 		}
 		n32 nCheckSize = 0;
@@ -206,139 +203,139 @@ bool CCtpk::ImportFile()
 		{
 			printf("INFO: width: %X, height: %X, checksize: %X, size: %X, bpp: %d, format: %0X\n", pCtrTextureInfo[i].Width, pCtrTextureInfo[i].Height, nCheckSize, pCtrTextureInfo[i].TexDataSize, pCtrTextureInfo[i].TexDataSize * 8 / pCtrTextureInfo[i].Width / pCtrTextureInfo[i].Height, pCtrTextureInfo[i].TexFormat);
 		}
-		String sFilePath = FSAToUnicode(reinterpret_cast<char*>(pBin + pCtrTextureInfo[i].FilePathOffset));
-		remove(sFilePath.begin(), sFilePath.end(), STR(':'));
-		sFilePath = m_sDirName + STR("/") + sFilePath + STR(".png");
-		FILE* fp = FFopenUnicode(sFilePath.c_str(), STR("rb"));
-		if (fp == nullptr)
+		UString sPngFileName = AToU(reinterpret_cast<char*>(pCtpk + pCtrTextureInfo[i].FilePathOffset));
+		remove(sPngFileName.begin(), sPngFileName.end(), USTR(':'));
+		sPngFileName = m_sDirName + USTR("/") + sPngFileName + USTR(".png");
+		FILE* fpSub = UFopen(sPngFileName.c_str(), USTR("rb"));
+		if (fpSub == nullptr)
 		{
 			bResult = false;
 			break;
 		}
 		if (m_bVerbose)
 		{
-			FPrintf(STR("load: %s\n"), sFilePath.c_str());
+			UPrintf(USTR("load: %") PRIUS USTR("\n"), sPngFileName.c_str());
 		}
-		png_structp png_ptr = png_create_read_struct(PNG_LIBPNG_VER_STRING, (png_voidp)nullptr, nullptr, nullptr);
-		if (png_ptr == nullptr)
+		png_structp pPng = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
+		if (pPng == nullptr)
 		{
-			fclose(fp);
+			fclose(fpSub);
+			bResult = false;
 			printf("ERROR: png_create_read_struct error\n\n");
-			bResult = false;
 			break;
 		}
-		png_infop info_ptr = png_create_info_struct(png_ptr);
-		if (info_ptr == nullptr)
+		png_infop pInfo = png_create_info_struct(pPng);
+		if (pInfo == nullptr)
 		{
-			png_destroy_read_struct(&png_ptr, (png_infopp)nullptr, (png_infopp)nullptr);
-			fclose(fp);
+			png_destroy_read_struct(&pPng, nullptr, nullptr);
+			fclose(fpSub);
+			bResult = false;
 			printf("ERROR: png_create_info_struct error\n\n");
-			bResult = false;
 			break;
 		}
-		png_infop end_info = png_create_info_struct(png_ptr);
-		if (end_info == nullptr)
+		png_infop pEndInfo = png_create_info_struct(pPng);
+		if (pEndInfo == nullptr)
 		{
-			png_destroy_read_struct(&png_ptr, &info_ptr, (png_infopp)nullptr);
-			fclose(fp);
+			png_destroy_read_struct(&pPng, &pInfo, nullptr);
+			fclose(fpSub);
+			bResult = false;
 			printf("ERROR: png_create_info_struct error\n\n");
-			bResult = false;
 			break;
 		}
-		if (setjmp(png_jmpbuf(png_ptr)) != 0)
+		if (setjmp(png_jmpbuf(pPng)) != 0)
 		{
-			png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
-			fclose(fp);
+			png_destroy_read_struct(&pPng, &pInfo, &pEndInfo);
+			fclose(fpSub);
+			bResult = false;
 			printf("ERROR: setjmp error\n\n");
-			bResult = false;
 			break;
 		}
-		png_init_io(png_ptr, fp);
-		png_read_info(png_ptr, info_ptr);
-		n32 nPngWidth = png_get_image_width(png_ptr, info_ptr);
+		png_init_io(pPng, fpSub);
+		png_read_info(pPng, pInfo);
+		n32 nPngWidth = png_get_image_width(pPng, pInfo);
 		if (nPngWidth != pCtrTextureInfo[i].Width)
 		{
-			png_destroy_read_struct(&png_ptr, &info_ptr, (png_infopp)nullptr);
-			fclose(fp);
-			printf("ERROR: nPngWidth != Width\n\n");
+			png_destroy_read_struct(&pPng, &pInfo, &pEndInfo);
+			fclose(fpSub);
 			bResult = false;
+			printf("ERROR: nPngWidth != Width\n\n");
 			break;
 		}
-		n32 nPngHeight = png_get_image_height(png_ptr, info_ptr);
+		n32 nPngHeight = png_get_image_height(pPng, pInfo);
 		if (nPngHeight != pCtrTextureInfo[i].Height)
 		{
-			png_destroy_read_struct(&png_ptr, &info_ptr, (png_infopp)nullptr);
-			fclose(fp);
-			printf("ERROR: nPngHeight != Height\n\n");
+			png_destroy_read_struct(&pPng, &pInfo, &pEndInfo);
+			fclose(fpSub);
 			bResult = false;
+			printf("ERROR: nPngHeight != Height\n\n");
 			break;
 		}
-		n32 nBitDepth = png_get_bit_depth(png_ptr, info_ptr);
+		n32 nBitDepth = png_get_bit_depth(pPng, pInfo);
 		if (nBitDepth != 8)
 		{
-			png_destroy_read_struct(&png_ptr, &info_ptr, (png_infopp)nullptr);
-			fclose(fp);
-			printf("ERROR: nBitDepth != 8\n\n");
+			png_destroy_read_struct(&pPng, &pInfo, &pEndInfo);
+			fclose(fpSub);
 			bResult = false;
+			printf("ERROR: nBitDepth != 8\n\n");
 			break;
 		}
-		n32 nColorType = png_get_color_type(png_ptr, info_ptr);
+		n32 nColorType = png_get_color_type(pPng, pInfo);
 		if (nColorType != PNG_COLOR_TYPE_RGB_ALPHA)
 		{
-			png_destroy_read_struct(&png_ptr, &info_ptr, (png_infopp)nullptr);
-			fclose(fp);
-			printf("ERROR: nColorType != PNG_COLOR_TYPE_RGB_ALPHA\n\n");
+			png_destroy_read_struct(&pPng, &pInfo, &pEndInfo);
+			fclose(fpSub);
 			bResult = false;
+			printf("ERROR: nColorType != PNG_COLOR_TYPE_RGB_ALPHA\n\n");
 			break;
 		}
-		u8* pData = new unsigned char[nPngWidth * nPngHeight * 4];
+		u8* pData = new u8[nPngWidth * nPngHeight * 4];
 		png_bytepp pRowPointers = new png_bytep[nPngHeight];
 		for (n32 j = 0; j < nPngHeight; j++)
 		{
 			pRowPointers[j] = pData + j * nPngWidth * 4;
 		}
-		png_read_image(png_ptr, pRowPointers);
-		png_destroy_read_struct(&png_ptr, &info_ptr, &end_info);
+		png_read_image(pPng, pRowPointers);
+		png_destroy_read_struct(&pPng, &pInfo, &pEndInfo);
 		delete[] pRowPointers;
-		fclose(fp);
+		fclose(fpSub);
 		pvrtexture::CPVRTexture* pPVRTexture = nullptr;
-		bool bSame = decode(pBin + pCtpkHeader->TextureOffset + pCtrTextureInfo[i].TexDataOffset, pCtrTextureInfo[i].Width, pCtrTextureInfo[i].Height, pCtrTextureInfo[i].TexFormat, &pPVRTexture) == 0 && memcmp(pPVRTexture->getDataPtr(), pData, pCtrTextureInfo[i].Width * pCtrTextureInfo[i].Height * 4) == 0;
+		bool bSame = decode(pCtpk + pCtpkHeader->TextureOffset + pCtrTextureInfo[i].TexDataOffset, pCtrTextureInfo[i].Width, pCtrTextureInfo[i].Height, pCtrTextureInfo[i].TexFormat, &pPVRTexture) == 0 && memcmp(pPVRTexture->getDataPtr(), pData, pCtrTextureInfo[i].Width * pCtrTextureInfo[i].Height * 4) == 0;
 		delete pPVRTexture;
 		if (!bSame)
 		{
 			u8* pBuffer = nullptr;
 			encode(pData, nPngWidth, nPngHeight, pCtrTextureInfo[i].TexFormat, pCtrTextureInfo[i].MipLevel, s_nBPP[pCtrTextureInfo[i].TexFormat], &pBuffer);
-			memcpy(pBin + pCtpkHeader->TextureOffset + pCtrTextureInfo[i].TexDataOffset, pBuffer, pCtrTextureInfo[i].TexDataSize);
+			memcpy(pCtpk + pCtpkHeader->TextureOffset + pCtrTextureInfo[i].TexDataOffset, pBuffer, pCtrTextureInfo[i].TexDataSize);
 			delete[] pBuffer;
 		}
 		delete[] pData;
 	}
 	if (bResult)
 	{
-		m_fpCtpk = FFopen(m_pFileName, "wb");
-		if (m_fpCtpk != nullptr)
+		fp = Fopen(m_sFileName.c_str(), "wb");
+		if (fp != nullptr)
 		{
-			fwrite(pBin, 1, static_cast<size_t>(nFileSize), m_fpCtpk);
-			fclose(m_fpCtpk);
+			fwrite(pCtpk, 1, uCtpkSize, fp);
+			fclose(fp);
 		}
 		else
 		{
 			bResult = false;
 		}
 	}
-	delete[] pBin;
+	delete[] pCtpk;
 	return bResult;
 }
 
-bool CCtpk::IsCtpkFile(const char* a_pFileName)
+bool CCtpk::IsCtpkFile(const string& a_sFileName)
 {
-	FILE* fp = FFopen(a_pFileName, "rb");
+	FILE* fp = Fopen(a_sFileName.c_str(), "rb");
 	if (fp == nullptr)
 	{
 		return false;
 	}
 	SCtpkHeader ctpkHeader;
-	fread(&ctpkHeader, sizeof(ctpkHeader), 1, fp);
+	fread(&ctpkHeader, sizeof(SCtpkHeader), 1, fp);
 	fclose(fp);
 	return ctpkHeader.Signature == s_uSignature;
 }
