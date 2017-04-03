@@ -104,8 +104,11 @@ int CCtpkTool::CheckOptions()
 		}
 		if (!CCtpk::IsCtpkFile(m_sFileName))
 		{
-			printf("ERROR: %s is not a ctpk file\n\n", m_sFileName.c_str());
-			return 1;
+			if (!CCtpk::IsCtpkIconFile(m_sFileName))
+			{
+				printf("ERROR: %s is not a ctpk file\n\n", m_sFileName.c_str());
+				return 1;
+			}
 		}
 	}
 	return 0;

@@ -72,7 +72,10 @@ public:
 	void SetVerbose(bool a_bVerbose);
 	bool ExportFile();
 	bool ImportFile();
+	bool DecodeFile();
+	bool EncodeFile();
 	static bool IsCtpkFile(const string& a_sFileName);
+	static bool IsCtpkIconFile(const string& a_sFileName);
 	static const u32 s_uSignature;
 	static const int s_nBPP[];
 	static const int s_nDecodeTransByte[64];

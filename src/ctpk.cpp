@@ -55,6 +55,11 @@ bool CCtpk::ExportFile()
 	fread(pCtpk, 1, uCtpkSize, fp);
 	fclose(fp);
 	SCtpkHeader* pCtpkHeader = reinterpret_cast<SCtpkHeader*>(pCtpk);
+	if (pCtpkHeader->Signature != s_uSignature)
+	{
+		delete[] pCtpk;
+		return DecodeFile();
+	}
 	SCtrTextureInfo* pCtrTextureInfo = reinterpret_cast<SCtrTextureInfo*>(pCtpk + sizeof(SCtpkHeader));
 	STextureShortInfo* pTextureShortInfo = reinterpret_cast<STextureShortInfo*>(pCtpk + pCtpkHeader->TextureShortInfoOffset);
 	UMkdir(m_sDirName.c_str());
@@ -176,6 +181,11 @@ bool CCtpk::ImportFile()
 	fread(pCtpk, 1, uCtpkSize, fp);
 	fclose(fp);
 	SCtpkHeader* pCtpkHeader = reinterpret_cast<SCtpkHeader*>(pCtpk);
+	if (pCtpkHeader->Signature != s_uSignature)
+	{
+		delete[] pCtpk;
+		return EncodeFile();
+	}
 	SCtrTextureInfo* pCtrTextureInfo = reinterpret_cast<SCtrTextureInfo*>(pCtpk + sizeof(SCtpkHeader));
 	STextureShortInfo* pTextureShortInfo = reinterpret_cast<STextureShortInfo*>(pCtpk + pCtpkHeader->TextureShortInfoOffset);
 	for (n32 i = 0; i < pCtpkHeader->Count; i++)
@@ -327,6 +337,236 @@ bool CCtpk::ImportFile()
 	return bResult;
 }
 
+bool CCtpk::DecodeFile()
+{
+	bool bResult = true;
+	FILE* fp = Fopen(m_sFileName.c_str(), "rb");
+	if (fp == nullptr)
+	{
+		return false;
+	}
+	fseek(fp, 0, SEEK_END);
+	u32 uCtpkSize = ftell(fp);
+	fseek(fp, 0, SEEK_SET);
+	u8* pCtpk = new u8[uCtpkSize];
+	fread(pCtpk, 1, uCtpkSize, fp);
+	fclose(fp);
+	n32 nWidth = static_cast<n32>(sqrt(uCtpkSize / 2));
+	n32 nHeight = nWidth;
+	UMkdir(m_sDirName.c_str());
+	do
+	{
+		pvrtexture::CPVRTexture* pPVRTexture = nullptr;
+		if (decode(pCtpk, nWidth, nHeight, kTextureFormatRGB565, &pPVRTexture) == 0)
+		{
+			vector<UString> vDirPath = SplitOf(m_sDirName, USTR("/\\"));
+			UString sPngFileName = m_sDirName + USTR("/") + vDirPath.back() + USTR(".png");
+			FILE* fpSub = UFopen(sPngFileName.c_str(), USTR("wb"));
+			if (fpSub == nullptr)
+			{
+				delete pPVRTexture;
+				bResult = false;
+				break;
+			}
+			if (m_bVerbose)
+			{
+				UPrintf(USTR("save: %") PRIUS USTR("\n"), sPngFileName.c_str());
+			}
+			png_structp pPng = png_create_write_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
+			if (pPng == nullptr)
+			{
+				fclose(fpSub);
+				delete pPVRTexture;
+				bResult = false;
+				printf("ERROR: png_create_write_struct error\n\n");
+				break;
+			}
+			png_infop pInfo = png_create_info_struct(pPng);
+			if (pInfo == nullptr)
+			{
+				png_destroy_write_struct(&pPng, nullptr);
+				fclose(fpSub);
+				delete pPVRTexture;
+				bResult = false;
+				printf("ERROR: png_create_info_struct error\n\n");
+				break;
+			}
+			if (setjmp(png_jmpbuf(pPng)) != 0)
+			{
+				png_destroy_write_struct(&pPng, &pInfo);
+				fclose(fpSub);
+				delete pPVRTexture;
+				bResult = false;
+				printf("ERROR: setjmp error\n\n");
+				break;
+			}
+			png_init_io(pPng, fpSub);
+			png_set_IHDR(pPng, pInfo, nWidth, nHeight, 8, PNG_COLOR_TYPE_RGB_ALPHA, PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT, PNG_FILTER_TYPE_DEFAULT);
+			u8* pData = static_cast<u8*>(pPVRTexture->getDataPtr());
+			png_bytepp pRowPointers = new png_bytep[nHeight];
+			for (n32 j = 0; j < nHeight; j++)
+			{
+				pRowPointers[j] = pData + j * nWidth * 4;
+			}
+			png_set_rows(pPng, pInfo, pRowPointers);
+			png_write_png(pPng, pInfo, PNG_TRANSFORM_IDENTITY, nullptr);
+			png_destroy_write_struct(&pPng, &pInfo);
+			delete[] pRowPointers;
+			fclose(fpSub);
+			delete pPVRTexture;
+		}
+		else
+		{
+			bResult = false;
+			printf("ERROR: decode error\n\n");
+			break;
+		}
+	} while (false);
+	delete[] pCtpk;
+	return bResult;
+}
+
+bool CCtpk::EncodeFile()
+{
+	bool bResult = true;
+	FILE* fp = Fopen(m_sFileName.c_str(), "rb");
+	if (fp == nullptr)
+	{
+		return false;
+	}
+	fseek(fp, 0, SEEK_END);
+	u32 uCtpkSize = ftell(fp);
+	fseek(fp, 0, SEEK_SET);
+	u8* pCtpk = new u8[uCtpkSize];
+	fread(pCtpk, 1, uCtpkSize, fp);
+	fclose(fp);
+	n32 nWidth = static_cast<n32>(sqrt(uCtpkSize / 2));
+	n32 nHeight = nWidth;
+	do
+	{
+		vector<UString> vDirPath = SplitOf(m_sDirName, USTR("/\\"));
+		UString sPngFileName = m_sDirName + USTR("/") + vDirPath.back() + USTR(".png");
+		FILE* fpSub = UFopen(sPngFileName.c_str(), USTR("rb"));
+		if (fpSub == nullptr)
+		{
+			bResult = false;
+			break;
+		}
+		if (m_bVerbose)
+		{
+			UPrintf(USTR("load: %") PRIUS USTR("\n"), sPngFileName.c_str());
+		}
+		png_structp pPng = png_create_read_struct(PNG_LIBPNG_VER_STRING, nullptr, nullptr, nullptr);
+		if (pPng == nullptr)
+		{
+			fclose(fpSub);
+			bResult = false;
+			printf("ERROR: png_create_read_struct error\n\n");
+			break;
+		}
+		png_infop pInfo = png_create_info_struct(pPng);
+		if (pInfo == nullptr)
+		{
+			png_destroy_read_struct(&pPng, nullptr, nullptr);
+			fclose(fpSub);
+			bResult = false;
+			printf("ERROR: png_create_info_struct error\n\n");
+			break;
+		}
+		png_infop pEndInfo = png_create_info_struct(pPng);
+		if (pEndInfo == nullptr)
+		{
+			png_destroy_read_struct(&pPng, &pInfo, nullptr);
+			fclose(fpSub);
+			bResult = false;
+			printf("ERROR: png_create_info_struct error\n\n");
+			break;
+		}
+		if (setjmp(png_jmpbuf(pPng)) != 0)
+		{
+			png_destroy_read_struct(&pPng, &pInfo, &pEndInfo);
+			fclose(fpSub);
+			bResult = false;
+			printf("ERROR: setjmp error\n\n");
+			break;
+		}
+		png_init_io(pPng, fpSub);
+		png_read_info(pPng, pInfo);
+		n32 nPngWidth = png_get_image_width(pPng, pInfo);
+		if (nPngWidth != nWidth)
+		{
+			png_destroy_read_struct(&pPng, &pInfo, &pEndInfo);
+			fclose(fpSub);
+			bResult = false;
+			printf("ERROR: nPngWidth != nWidth\n\n");
+			break;
+		}
+		n32 nPngHeight = png_get_image_height(pPng, pInfo);
+		if (nPngHeight != nHeight)
+		{
+			png_destroy_read_struct(&pPng, &pInfo, &pEndInfo);
+			fclose(fpSub);
+			bResult = false;
+			printf("ERROR: nPngHeight != nHeight\n\n");
+			break;
+		}
+		n32 nBitDepth = png_get_bit_depth(pPng, pInfo);
+		if (nBitDepth != 8)
+		{
+			png_destroy_read_struct(&pPng, &pInfo, &pEndInfo);
+			fclose(fpSub);
+			bResult = false;
+			printf("ERROR: nBitDepth != 8\n\n");
+			break;
+		}
+		n32 nColorType = png_get_color_type(pPng, pInfo);
+		if (nColorType != PNG_COLOR_TYPE_RGB_ALPHA)
+		{
+			png_destroy_read_struct(&pPng, &pInfo, &pEndInfo);
+			fclose(fpSub);
+			bResult = false;
+			printf("ERROR: nColorType != PNG_COLOR_TYPE_RGB_ALPHA\n\n");
+			break;
+		}
+		u8* pData = new u8[nPngWidth * nPngHeight * 4];
+		png_bytepp pRowPointers = new png_bytep[nPngHeight];
+		for (n32 j = 0; j < nPngHeight; j++)
+		{
+			pRowPointers[j] = pData + j * nPngWidth * 4;
+		}
+		png_read_image(pPng, pRowPointers);
+		png_destroy_read_struct(&pPng, &pInfo, &pEndInfo);
+		delete[] pRowPointers;
+		fclose(fpSub);
+		pvrtexture::CPVRTexture* pPVRTexture = nullptr;
+		bool bSame = decode(pCtpk, nWidth, nHeight, kTextureFormatRGB565, &pPVRTexture) == 0 && memcmp(pPVRTexture->getDataPtr(), pData, nWidth * nHeight * 4) == 0;
+		delete pPVRTexture;
+		if (!bSame)
+		{
+			u8* pBuffer = nullptr;
+			encode(pData, nPngWidth, nPngHeight, kTextureFormatRGB565, 1, s_nBPP[kTextureFormatRGB565], &pBuffer);
+			memcpy(pCtpk, pBuffer, uCtpkSize);
+			delete[] pBuffer;
+		}
+		delete[] pData;
+	} while (false);
+	if (bResult)
+	{
+		fp = Fopen(m_sFileName.c_str(), "wb");
+		if (fp != nullptr)
+		{
+			fwrite(pCtpk, 1, uCtpkSize, fp);
+			fclose(fp);
+		}
+		else
+		{
+			bResult = false;
+		}
+	}
+	delete[] pCtpk;
+	return bResult;
+}
+
 bool CCtpk::IsCtpkFile(const string& a_sFileName)
 {
 	FILE* fp = Fopen(a_sFileName.c_str(), "rb");
@@ -338,6 +578,23 @@ bool CCtpk::IsCtpkFile(const string& a_sFileName)
 	fread(&ctpkHeader, sizeof(SCtpkHeader), 1, fp);
 	fclose(fp);
 	return ctpkHeader.Signature == s_uSignature;
+}
+
+bool CCtpk::IsCtpkIconFile(const string& a_sFileName)
+{
+	n64 nCtpkSize = 0;
+	if (!UGetFileSize(AToU(a_sFileName).c_str(), nCtpkSize))
+	{
+		printf("ERROR: get %s size error\n\n", a_sFileName.c_str());
+		return false;
+	}
+	if (nCtpkSize <= 0 || nCtpkSize % 2 != 0)
+	{
+		return false;
+	}
+	nCtpkSize /= 2;
+	n32 nSize = static_cast<n32>(sqrt(nCtpkSize));
+	return nSize * nSize == nCtpkSize && nSize % 8 == 0;
 }
 
 int CCtpk::decode(u8* a_pBuffer, n32 a_nWidth, n32 a_nHeight, n32 a_nFormat, pvrtexture::CPVRTexture** a_pPVRTexture)
