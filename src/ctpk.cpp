@@ -86,7 +86,7 @@ bool CCtpk::ExportFile()
 		pvrtexture::CPVRTexture* pPVRTexture = nullptr;
 		if (decode(pCtpk + pCtpkHeader->TextureOffset + pCtrTextureInfo[i].TexDataOffset, pCtrTextureInfo[i].Width, pCtrTextureInfo[i].Height, pCtrTextureInfo[i].TexFormat, &pPVRTexture) == 0)
 		{
-			UString sPngFileName = AToU(reinterpret_cast<char*>(pCtpk + pCtrTextureInfo[i].FilePathOffset));
+			UString sPngFileName = XToU(reinterpret_cast<char*>(pCtpk + pCtrTextureInfo[i].FilePathOffset), 932, "CP932");
 			remove(sPngFileName.begin(), sPngFileName.end(), USTR(':'));
 			vector<UString> vDirPath = SplitOf(sPngFileName, USTR("/\\"));
 			UString sDirName = m_sDirName;
@@ -203,7 +203,7 @@ bool CCtpk::ImportFile()
 		{
 			printf("INFO: width: %X, height: %X, checksize: %X, size: %X, bpp: %d, format: %0X\n", pCtrTextureInfo[i].Width, pCtrTextureInfo[i].Height, nCheckSize, pCtrTextureInfo[i].TexDataSize, pCtrTextureInfo[i].TexDataSize * 8 / pCtrTextureInfo[i].Width / pCtrTextureInfo[i].Height, pCtrTextureInfo[i].TexFormat);
 		}
-		UString sPngFileName = AToU(reinterpret_cast<char*>(pCtpk + pCtrTextureInfo[i].FilePathOffset));
+		UString sPngFileName = XToU(reinterpret_cast<char*>(pCtpk + pCtrTextureInfo[i].FilePathOffset), 932, "CP932");
 		remove(sPngFileName.begin(), sPngFileName.end(), USTR(':'));
 		sPngFileName = m_sDirName + USTR("/") + sPngFileName + USTR(".png");
 		FILE* fpSub = UFopen(sPngFileName.c_str(), USTR("rb"));
