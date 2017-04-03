@@ -351,7 +351,7 @@ bool CCtpk::DecodeFile()
 	u8* pCtpk = new u8[uCtpkSize];
 	fread(pCtpk, 1, uCtpkSize, fp);
 	fclose(fp);
-	n32 nWidth = static_cast<n32>(sqrt(uCtpkSize / 2));
+	n32 nWidth = static_cast<n32>(sqrt(static_cast<double>(uCtpkSize / 2)));
 	n32 nHeight = nWidth;
 	UMkdir(m_sDirName.c_str());
 	do
@@ -440,7 +440,7 @@ bool CCtpk::EncodeFile()
 	u8* pCtpk = new u8[uCtpkSize];
 	fread(pCtpk, 1, uCtpkSize, fp);
 	fclose(fp);
-	n32 nWidth = static_cast<n32>(sqrt(uCtpkSize / 2));
+	n32 nWidth = static_cast<n32>(sqrt(static_cast<double>(uCtpkSize / 2)));
 	n32 nHeight = nWidth;
 	do
 	{
@@ -593,7 +593,7 @@ bool CCtpk::IsCtpkIconFile(const string& a_sFileName)
 		return false;
 	}
 	nCtpkSize /= 2;
-	n32 nSize = static_cast<n32>(sqrt(nCtpkSize));
+	n32 nSize = static_cast<n32>(sqrt(static_cast<double>(nCtpkSize)));
 	return nSize * nSize == nCtpkSize && nSize % 8 == 0;
 }
 
