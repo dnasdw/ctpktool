@@ -215,7 +215,13 @@ bool CCtpk::ImportFile()
 		}
 		UString sPngFileName = XToU(reinterpret_cast<char*>(pCtpk + pCtrTextureInfo[i].FilePathOffset), 932, "CP932");
 		remove(sPngFileName.begin(), sPngFileName.end(), USTR(':'));
-		sPngFileName = m_sDirName + USTR("/") + sPngFileName + USTR(".png");
+		vector<UString> vDirPath = SplitOf(sPngFileName, USTR("/\\"));
+		UString sDirName = m_sDirName;
+		for (n32 j = 0; j < static_cast<n32>(vDirPath.size()) - 1; j++)
+		{
+			sDirName += USTR("/") + vDirPath[j];
+		}
+		sPngFileName = sDirName + USTR("/") + vDirPath.back() + USTR(".png");
 		FILE* fpSub = UFopen(sPngFileName.c_str(), USTR("rb"));
 		if (fpSub == nullptr)
 		{

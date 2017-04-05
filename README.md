@@ -6,6 +6,7 @@ A tool for exporting/importing ctpk file.
 
 - v1.0.0 @ 2015.03.11 - First release
 - v1.0.1 @ 2017.04.04 - Change encoding and support ctpk icon
+- v1.0.2 @ 2017.04.06 - Avoid ctpk contain backslash
 
 ## Platforms
 
