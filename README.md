@@ -6,6 +6,7 @@ A tool for exporting/importing ctpk file.
 
 - v1.1.0 @ 2018.01.04 - A new beginning
 - v1.1.1 @ 2018.07.27 - Update cmake
+- v1.1.2 @ 2019.07.09 - Update dep
 
 ### v1.0
 
